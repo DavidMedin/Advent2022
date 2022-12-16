@@ -1,4 +1,5 @@
 import re
+import numpy as np
 findall = lambda s: [int(x) for x in re.findall(r'-?\d+',s)]
 
 class Valve:
@@ -15,6 +16,13 @@ def get_valve(name):
     for valve in valves:
         if valve.name == name:
             return valve
+    assert(False)
+
+def get_index(name):
+    global valves
+    for i,valve in enumerate(valves):
+        if valve.name == name:
+            return i
     assert(False)
 
 def shortest(start,end,dist=0):
@@ -54,6 +62,27 @@ for line in file.readlines():
         leads_to.append(word.split(",")[0])
     valves.append(Valve(valve,rate, leads_to))
 
+
+def dfs_neighbors(node, dist, visited):
+    neighs = []
+    visited[get_index(node.name)] = True
+    for neigh in node.neighs:
+        if visited[get_index(neigh)] == True:
+            continue
+        neigh_obj = get_valve(neigh)
+        if neigh_obj.rate != 0:
+            neighs.append((dist+1, get_index(neigh)))
+            continue
+        wack =dfs_neighbors(neigh_obj, dist+1,visited)
+        if len(neighs) == 0:
+            neighs = wack
+        else:
+            np.concatenate((neighs, wack))
+    return neighs
+
+for valve in valves:
+    valve.real_neigh = dfs_neighbors(valve, 0, [False] * len(valves))
+
 current = valves[0]
 
 relief = 0
@@ -81,29 +110,53 @@ def score(start,target,time):
     # print(score)
     return dist+1
 
-while time > 0:
-    if visited_valves == len(valves):
-        break
+# while time > 0:
+#     if visited_valves == len(valves):
+#         break
 
-    target_valve = sorted(valves, key=lambda x: score(current,x,time))[0]
-    if target_valve.rate == 0:
-        break
-    dist = shortest(current,target_valve)
-    reset()
-    print(f"Target : {target_valve.name}, dist : {dist}, flow : {target_valve.rate}")
-    current = target_valve
+#     target_valve = sorted(valves, key=lambda x: score(current,x,time))[0]
+#     if target_valve.rate == 0:
+#         break
+#     dist = shortest(current,target_valve)
+#     reset()
+#     print(f"Target : {target_valve.name}, dist : {dist}, flow : {target_valve.rate}")
+#     current = target_valve
 
-    if dist+1 >= time: break
-    for i in range(dist+1):
-        do_time()
-    acc_flow += target_valve.rate
-    target_valve.open = True
-    visited_valves += 1
+#     if dist+1 >= time: break
+#     for i in range(dist+1):
+#         do_time()
+#     acc_flow += target_valve.rate
+#     target_valve.open = True
+#     visited_valves += 1
 
-while time > 0:
-    do_time()
+# while time > 0:
+#     do_time()
 
-print(relief)
+# print(relief)
+
+def dfs(node,time,flow, gain,visited):
+    if time <= 0:
+        return gain
+    node_index = get_index(node.name)
+
+    # gain += flow
+    if visited[node_index] == False and  node.rate > 0:
+        visited[node_index] = True
+        flow += node.rate
+        time -= 1
+    scores = []
+    for (dist_to,neigh_i) in node.real_neigh:
+        # if visited[get_index(neigh)] == True:
+        #     continue
+        neigh_obj = valves[neigh_i]
+        if time-dist_to <= 0:
+            continue
+        scores.append(dfs(neigh_obj, time-dist_to, flow, gain + flow * dist_to, visited.copy()))
+    if len(scores) == 0:
+        return gain
+    return max(scores)
+
+print(dfs(valves[0], 30,0,0 , [False] * len(valves)))
 
 # sorted_valves = sorted(valves, key=lambda x: x.rate, reverse=True)
 # for valve in sorted_valves:
