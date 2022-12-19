@@ -55,27 +55,47 @@ for valve in valves:
     dfs_neighbors(valve, 0, [False] * len(valves),neighbors)
     valve.real_neigh = neighbors
 
-
-def dfs(node, gain, time,visited):
+def dfs(node, gain, time,visited, history,last=None):
     if time <= 0:
-        return gain
+        return 0,history
     node_i = get_index(node.name)
+    scores = []
+
+    opened = False
 
     if node.rate != 0 and visited[node_i] == False:
+        for (neigh, dist) in node.real_neigh:
+            if dist >= time:
+                continue
+            obj = valves[neigh]
+            if obj == last: # Didn't open this valve, don't go backwards
+                continue 
+            new_hist = history.copy()
+            new_hist.append(obj.name)
+            scores.append( dfs(obj, gain, time - dist, visited.copy(), new_hist,node )  )
+        
         visited[node_i] = True
         time -= 1
         gain += time * node.rate
-    
-    scores = []
-    
+        history.append(f"Open {node.name}")
+        opened = True
+
     for (neigh, dist) in node.real_neigh:
         if dist >= time:
             continue
         obj = valves[neigh]
-        scores.append( dfs(obj, gain, time - dist, visited.copy() )  )
+        if opened == False and obj == last:
+            continue
+        new_hist = history.copy()
+        new_hist.append(obj.name)
+        scores.append( dfs(obj, gain, time - dist, visited.copy(), new_hist,node )  )
     if len(scores) == 0:
-        return gain
-    the_max = max(scores)
+        return gain,history
+    the_max = max(scores, key=lambda x: x[0])
     return the_max
 
-print(dfs(valves[0], 0,30, [False] * len(valves) ))
+# print(dfs(valves[0], 0,30, [False] * len(valves), [] ))
+for valve in valves:
+    if valve.name == "AA":
+        print(dfs(valve, 0,26, [False] * len(valves), [] ))
+        break
